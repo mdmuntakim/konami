@@ -1,0 +1,74 @@
+name: Build Konami ID Release APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./konami-app
+
+    steps:
+      - name: ⭐ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🛠️ Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          ndk-level: 25
+
+      - name: 📜 Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: 🔨 Build Release APK
+        uses: android-actions/gradle@v3
+        with:
+          build-type: release
+          arguments: assembleRelease
+
+      - name: 📁 Upload Release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: konami-id-release-apk
+          path: konami-app/build/outputs/apk/release/*.apk
+
+      - name: 🏷️ Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-${{ github.run_number }}
+          name: "Konami ID Release #${{ github.run_number }}"
+          files: konami-app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+
+      - name: 📤 Push to GitHub remote (konami repo)
+        env:
+          GIT_AUTHOR_NAME: "Konami ID Bot"
+          GIT_AUTHOR_EMAIL: "bot@konami.id"
+          GIT_COMMITTER_NAME: "Konami ID Bot"
+          GIT_COMMITTER_EMAIL: "bot@konami.id"
+        run: |
+          git remote remove origin 2>/dev/null || true
+          git remote add origin "https://github.com/Konami/konami.git"
+          git push -u origin main
