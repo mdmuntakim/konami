@@ -25,13 +25,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🛠️ Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          ndk-level: 25
-
-      - name: 📜 Cache Gradle dependencies
+      - name: 📜 Cache Gradle wrapper
         uses: actions/cache@v4
         with:
           path: |
@@ -41,10 +35,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: 🔨 Initialize Android Gradle Wrapper
+        run: |
+          if [ ! -f "gradlew" ]; then
+            echo "y" | sdkmanager --install "platforms;android-33" > /dev/null 2>&1
+            echo "z" | sdkmanager --install "build-tools;33.0.2" > /dev/null 2>&1
+            ./gradlew --init daemon 2>/dev/null
+          fi
+          if [ ! -f "gradlew" ]; then
+            curl -sL https://services.gradle.org/distributions/gradle-9.8-all.zip -o gradle.zip
+            unzip -q gradle.zip
+            mv gradle-9.8 gradle
+            ./gradlew --version 2>/dev/null
+          fi
+          chmod +x gradlew
+
       - name: 🔨 Build Release APK
         run: |
-          chmod +x gradlew 2>/dev/null || true
-          ./gradlew assembleRelease --no-daemon 2>&1 || gradle assembleRelease --no-daemon 2>&1
+          ./gradlew assembleRelease --no-daemon 2>&1 | tail -20
 
       - name: 📁 Upload Release APK artifact
         uses: actions/upload-artifact@v4
