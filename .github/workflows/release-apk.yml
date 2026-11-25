@@ -9,9 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./konami-app
 
     steps:
       - name: ⭐ Checkout repository
@@ -32,11 +29,7 @@ jobs:
           cd "$CMDL_DIR"
           curl -sL "$CD_URL" -o cmdline-tools.zip
           unzip -q cmdline-tools.zip
-          mv tools cmdline-tools 2>/dev/null || true
-          if [ ! -d "cmdline-tools" ]; then
-            for d in */; do [ -d "$d" ] && mv "$d" cmdline-tools && break; done
-          fi
-          ls cmdline-tools/bin/
+          for d in */; do [ -d "$d" ] && mv "$d" cmdline-tools && break; done 2>/dev/null
           echo y | "$cmdline-tools/bin/sdkmanager" --install "platforms;android-33" 2>&1 | tail -3
           echo y | "$cmdline-tools/bin/sdkmanager" --install "build-tools;33.0.2" 2>&1 | tail -3
           export ANDROID_CMDLINE_TOOLS="$cmdline-tools"
@@ -44,26 +37,27 @@ jobs:
 
       - name: 📜 Accept SDK Licenses
         run: |
-          ANDROID_SDK_ROOT="$HOME/android" ANDROID_CMDLINE_TOOLS
-          echo "y" | "$ANDROID_CMDLINE_TOOLS/bin/sdkmanager" --licenses 2>&1 | tail -5
+          export ANDROID_CMDLINE_TOOLS
+          echo y | "$ANDROID_CMDLINE_TOOLS/bin/sdkmanager" --licenses 2>&1 | tail -5
 
       - name: 🔨 Build Release APK
         run: |
           chmod +x gradlew 2>/dev/null || true
-          ANDROID_SDK_ROOT="${ANDROID_CMDLINE_TOOLS%/cmdline-tools latest}" ANDROID_CMDLINE_TOOLS="$ANDROID_CMDLINE_TOOLS" ./gradlew assembleRelease --no-daemon 2>&1 | tail -10
+          export ANDROID_CMDLINE_TOOLS
+          ./gradlew assembleRelease --no-daemon 2>&1 | tail -10
 
       - name: 📁 Upload Release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: konami-id-release-apk
-          path: konami-app/build/outputs/apk/release/*.apk
+          path: build/outputs/apk/release/*.apk
 
       - name: 🏷️ Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: release-${{ github.run_number }}
           name: "Konami ID Release #${{ github.run_number }}"
-          files: konami-app/build/outputs/apk/release/*.apk
+          files: build/outputs/apk/release/*.apk
           generate_release_notes: false
           fail_on_unmatched_files: false
 
